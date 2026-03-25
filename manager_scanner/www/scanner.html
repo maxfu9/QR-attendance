@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager Scanner | HRMS</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            margin-bottom: 18px;
+        }
+
+        .mode-banner {
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: rgba(79, 70, 229, 0.15);
+            border: 1px solid rgba(79, 70, 229, 0.35);
+            color: #c7d2fe;
+            font-size: 14px;
+        }
+
+        .preview-card {
+            display: none;
+            margin-bottom: 20px;
+            padding: 18px;
+            border-radius: 16px;
+            border: 1px solid #334155;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96));
+            text-align: left;
+        }
+
+        .preview-card.visible {
+            display: block;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .preview-head {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+        }
+
+        .preview-image,
+        .preview-image-placeholder {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #334155;
+            border: 2px solid rgba(148, 163, 184, 0.25);
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .preview-image-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 800;
+            color: #e2e8f0;
+        }
+
+        .preview-name {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .preview-meta {
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .preview-next {
+            margin-top: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .preview-next.in {
+            background: rgba(34, 197, 94, 0.16);
+            color: #86efac;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .preview-next.out {
+            background: rgba(245, 158, 11, 0.16);
+            color: #fcd34d;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .preview-actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            flex: 1;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .action-btn.secondary {
+            background: #334155;
+            color: #e2e8f0;
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, #16a34a, #22c55e);
+            color: white;
+        }
+
+        .action-btn.primary.out {
+            background: linear-gradient(135deg, #ea580c, #f59e0b);
+        }
+
+        #reader {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #334155;
+            background: black;
+            margin-bottom: 20px;
+        }
+
+        #result-container {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 12px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes successPulse {
+            0% { transform: scale(0.96); box-shadow: 0 0 0 rgba(34, 197, 94, 0); }
+            40% { transform: scale(1.02); box-shadow: 0 0 28px rgba(34, 197, 94, 0.35); }
+            100% { transform: scale(1); box-shadow: 0 0 0 rgba(34, 197, 94, 0); }
+        }
+
+        @keyframes errorShake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-6px); }
+            80% { transform: translateX(6px); }
+        }
+
+        @keyframes readerGlowIn {
+            0% { box-shadow: 0 0 0 rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 30px rgba(34, 197, 94, 0.35); }
+        }
+
+        @keyframes readerGlowOut {
+            0% { box-shadow: 0 0 0 rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 30px rgba(245, 158, 11, 0.35); }
+        }
+
+        @keyframes readerGlowError {
+            0% { box-shadow: 0 0 0 rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.35); }
+        }
+
+        .status-header {
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 4px;
+        }
+
+        .status-msg {
+            font-size: 14px;
+        }
+
+        .error { background-color: rgba(239, 68, 68, 0.15); border: 1px solid var(--error); color: #f87171; }
+        .status-in { background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(16, 185, 129, 0.1)); border: 1px solid var(--success); color: #bbf7d0; }
+        .status-out { background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(249, 115, 22, 0.1)); border: 1px solid var(--warning); color: #fde68a; }
+        .animate-success { animation: fadeIn 0.25s ease, successPulse 0.55s ease; }
+        .animate-error { animation: fadeIn 0.2s ease, errorShake 0.45s ease; }
+
+        .reader-success-in {
+            border-color: var(--success) !important;
+            animation: readerGlowIn 0.35s ease forwards;
+        }
+
+        .reader-success-out {
+            border-color: var(--warning) !important;
+            animation: readerGlowOut 0.35s ease forwards;
+        }
+
+        .reader-error {
+            border-color: var(--error) !important;
+            animation: readerGlowError 0.35s ease forwards;
+        }
+
+        .result-chip {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            margin: 0 auto 12px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: 800;
+            color: white;
+        }
+
+        .chip-in {
+            display: flex;
+            background: radial-gradient(circle at top, #4ade80, #16a34a);
+            box-shadow: 0 10px 24px rgba(34, 197, 94, 0.3);
+        }
+
+        .chip-out {
+            display: flex;
+            background: radial-gradient(circle at top, #fbbf24, #ea580c);
+            box-shadow: 0 10px 24px rgba(245, 158, 11, 0.28);
+        }
+
+        .chip-error {
+            display: flex;
+            background: radial-gradient(circle at top, #f87171, #dc2626);
+            box-shadow: 0 10px 24px rgba(239, 68, 68, 0.28);
+        }
+
+        .recent-logs {
+            margin-top: 32px;
+            text-align: left;
+            width: 100%;
+        }
+
+        .recent-logs h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .log-item {
+            padding: 12px;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-item:last-child { border-bottom: none; }
+
+        .log-info { display: flex; flex-direction: column; }
+        .log-emp { font-weight: 600; }
+        .log-time { font-size: 12px; color: var(--text-muted); }
+        .log-type-badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .badge-in { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+        .badge-out { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+
+        .empty-state {
+            padding: 14px 0;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        #token-error {
+            display: none;
+            color: var(--error);
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Manager Scanner</h1>
+        <p class="subtitle">Scan employee QR to mark check-in/out</p>
+
+        <div id="token-error">Invalid or Missing Token!</div>
+
+        <div class="mode-banner">
+            First scan marks <strong>IN</strong>. Next scan marks <strong>OUT</strong> automatically.
+        </div>
+
+        <div id="preview-card" class="preview-card">
+            <div class="preview-head">
+                <div id="preview-image-wrap"></div>
+                <div>
+                    <div id="preview-name" class="preview-name"></div>
+                    <div id="preview-meta" class="preview-meta"></div>
+                </div>
+            </div>
+            <div id="preview-next" class="preview-next"></div>
+            <div class="preview-actions">
+                <button id="cancel-scan-btn" class="action-btn secondary" type="button">Cancel</button>
+                <button id="confirm-scan-btn" class="action-btn primary" type="button">Confirm Scan</button>
+            </div>
+        </div>
+
+        <div id="reader"></div>
+
+        <div id="result-container">
+            <div id="result-chip" class="result-chip"></div>
+            <div id="status-header" class="status-header"></div>
+            <div id="status-msg" class="status-msg"></div>
+        </div>
+
+        <div class="recent-logs">
+            <h3>Recent Scans</h3>
+            <div id="logs-list"></div>
+        </div>
+    </div>
+
+    <script>
+        let isProcessing = false;
+        let scannerConfig = { scan_cooldown_seconds: 60 };
+        let pendingEmployee = null;
+        let pendingScanData = null;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const readerEl = document.getElementById('reader');
+        const resultContainer = document.getElementById('result-container');
+        const resultChip = document.getElementById('result-chip');
+        const previewCard = document.getElementById('preview-card');
+        const previewImageWrap = document.getElementById('preview-image-wrap');
+        const previewName = document.getElementById('preview-name');
+        const previewMeta = document.getElementById('preview-meta');
+        const previewNext = document.getElementById('preview-next');
+        const confirmScanBtn = document.getElementById('confirm-scan-btn');
+        const cancelScanBtn = document.getElementById('cancel-scan-btn');
+        const logsList = document.getElementById('logs-list');
+
+        if (!token) {
+            document.getElementById('token-error').style.display = 'block';
+            document.querySelector('.mode-banner').style.display = 'none';
+            readerEl.style.display = 'none';
+            previewCard.style.display = 'none';
+        }
+
+        cancelScanBtn.addEventListener('click', () => clearPreview(true));
+        confirmScanBtn.addEventListener('click', confirmPendingScan);
+
+        function onScanSuccess(decodedText) {
+            if (isProcessing) return;
+            isProcessing = true;
+            pendingScanData = decodedText;
+            resetReaderState();
+            readerEl.style.borderColor = 'var(--primary)';
+            html5QrcodeScanner.pause();
+            loadEmployeePreview(decodedText);
+        }
+
+        async function loadEmployeePreview(scanData) {
+            showResult('Processing...', 'Loading employee details...', '');
+
+            try {
+                const response = await fetch('/api/method/manager_scanner.api.get_employee_preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scan_data: scanData, token: token })
+                });
+                const data = await response.json();
+
+                if (data.message && data.message.employee_id) {
+                    pendingEmployee = data.message;
+                    renderPreview(data.message);
+                    resultContainer.style.display = 'none';
+                    playTone('preview');
+                    return;
+                }
+
+                const errorMsg = data._server_messages ? JSON.parse(data._server_messages)[0] : (data.exc_type || 'Error');
+                showResult('Failed', typeof errorMsg === 'string' ? errorMsg : 'Unable to load employee preview', 'error');
+                playTone('error');
+                resumeScannerWithDelay();
+            } catch (err) {
+                showResult('Error', 'Could not load employee preview', 'error');
+                playTone('error');
+                resumeScannerWithDelay();
+            }
+        }
+
+        async function confirmPendingScan() {
+            if (!pendingEmployee) return;
+            confirmScanBtn.disabled = true;
+            confirmScanBtn.style.opacity = '0.7';
+            await markAttendance(pendingScanData);
+            confirmScanBtn.disabled = false;
+            confirmScanBtn.style.opacity = '1';
+        }
+
+        async function markAttendance(scanData) {
+            showResult('Processing...', 'Please wait...', '');
+
+            try {
+                const location = await getCurrentLocationIfRequired();
+                const response = await fetch('/api/method/manager_scanner.api.mark_attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        scan_data: scanData,
+                        token: token,
+                        latitude: location?.latitude,
+                        longitude: location?.longitude
+                    })
+                });
+                const data = await response.json();
+
+                if (data.message && data.message.status === 'success') {
+                    const resultType = data.message.log_type === 'OUT' ? 'out' : 'in';
+                    const employeeId = pendingEmployee?.employee_id || '';
+                    const employeeName = pendingEmployee?.employee_name || employeeId;
+                    clearPreview(false);
+                    showResult(
+                        data.message.log_type === 'OUT' ? 'Checked Out' : 'Checked In',
+                        data.message.message,
+                        resultType
+                    );
+                    addLog({
+                        employee: employeeId,
+                        employee_name: employeeName,
+                        log_type: data.message.log_type,
+                        time: new Date().toISOString()
+                    });
+                    playTone(resultType);
+                    resumeScannerWithDelay();
+                } else {
+                    const errorMsg = data._server_messages ? JSON.parse(data._server_messages)[0] : (data.exc_type || 'Error');
+                    clearPreview(false);
+                    showResult('Failed', typeof errorMsg === 'string' ? errorMsg : 'Check ID or Connection', 'error');
+                    playTone('error');
+                    resumeScannerWithDelay();
+                }
+            } catch (err) {
+                clearPreview(false);
+                showResult('Error', err?.message || 'Connection failed', 'error');
+                playTone('error');
+                resumeScannerWithDelay();
+            }
+        }
+
+        async function loadScannerConfig() {
+            try {
+                const response = await fetch(`/api/method/manager_scanner.api.get_scanner_config?token=${encodeURIComponent(token)}`);
+                const data = await response.json();
+                if (data.message) {
+                    scannerConfig = data.message;
+                    document.querySelector('.mode-banner').innerHTML = `First scan marks <strong>IN</strong>. Next scan marks <strong>OUT</strong> automatically. Cooldown: <strong>${scannerConfig.scan_cooldown_seconds}s</strong>.${scannerConfig.location_validation_enabled ? ' <strong>Location required.</strong>' : ''}`;
+                }
+            } catch (err) {
+                scannerConfig = { scan_cooldown_seconds: 60 };
+            }
+        }
+
+        async function loadRecentScans() {
+            try {
+                const response = await fetch(`/api/method/manager_scanner.api.get_recent_scans?token=${encodeURIComponent(token)}&limit=5`);
+                const data = await response.json();
+                renderRecentScans(data.message || []);
+            } catch (err) {
+                renderRecentScans([]);
+            }
+        }
+
+        function renderPreview(employee) {
+            previewCard.classList.add('visible');
+            previewName.innerText = employee.employee_name || employee.employee_id;
+            previewMeta.innerText = [
+                employee.employee_id,
+                employee.department,
+                employee.designation
+            ].filter(Boolean).join(' • ');
+            previewNext.className = `preview-next ${employee.next_log_type === 'OUT' ? 'out' : 'in'}`;
+            previewNext.innerText = `Next action: ${employee.next_log_type}`;
+            confirmScanBtn.className = `action-btn primary${employee.next_log_type === 'OUT' ? ' out' : ''}`;
+            confirmScanBtn.innerText = `Confirm ${employee.next_log_type}`;
+
+            if (employee.image) {
+                previewImageWrap.innerHTML = `<img class="preview-image" src="${employee.image}" alt="${employee.employee_name || employee.employee_id}">`;
+            } else {
+                previewImageWrap.innerHTML = `<div class="preview-image-placeholder">${getInitials(employee.employee_name || employee.employee_id)}</div>`;
+            }
+        }
+
+        function clearPreview(resume) {
+            pendingEmployee = null;
+            pendingScanData = null;
+            previewCard.classList.remove('visible');
+            previewName.innerText = '';
+            previewMeta.innerText = '';
+            previewNext.className = 'preview-next';
+            previewNext.innerText = '';
+            previewImageWrap.innerHTML = '';
+
+            if (resume) {
+                resumeScannerWithDelay(0);
+            }
+        }
+
+        function resumeScannerWithDelay(delaySeconds = 3) {
+            setTimeout(() => {
+                html5QrcodeScanner.resume();
+                isProcessing = false;
+                resetReaderState();
+            }, Math.max(delaySeconds, 0) * 1000);
+        }
+
+        function renderRecentScans(scans) {
+            logsList.innerHTML = '';
+            if (!scans.length) {
+                logsList.innerHTML = '<div class="empty-state">No scans yet.</div>';
+                return;
+            }
+
+            scans.forEach((scan) => addLog(scan, false));
+        }
+
+        function addLog(scan, prepend = true) {
+            if (logsList.querySelector('.empty-state')) {
+                logsList.innerHTML = '';
+            }
+
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            item.innerHTML = `
+                <div class="log-info">
+                    <span class="log-emp">${scan.employee_name || scan.employee}</span>
+                    <span class="log-time">${[scan.employee, formatTime(scan.time)].filter(Boolean).join(' • ')}</span>
+                </div>
+                <span class="log-type-badge ${scan.log_type === 'IN' ? 'badge-in' : 'badge-out'}">${scan.log_type}</span>
+            `;
+
+            if (prepend) {
+                logsList.prepend(item);
+            } else {
+                logsList.appendChild(item);
+            }
+
+            while (logsList.children.length > 5) {
+                logsList.lastElementChild.remove();
+            }
+        }
+
+        function formatTime(value) {
+            if (!value) return '';
+            return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function getInitials(value) {
+            return (value || '?')
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0].toUpperCase())
+                .join('');
+        }
+
+        function getCurrentLocationIfRequired() {
+            if (!scannerConfig.location_validation_enabled) {
+                return Promise.resolve(null);
+            }
+
+            if (!navigator.geolocation) {
+                return Promise.reject(new Error('Location is required, but this device does not support geolocation.'));
+            }
+
+            return new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        });
+                    },
+                    (error) => {
+                        const message = error.code === error.PERMISSION_DENIED
+                            ? 'Location permission is required for this scanner.'
+                            : 'Unable to get current location.';
+                        reject(new Error(message));
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            });
+        }
+
+        function playTone(type) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+
+            const ctx = new AudioCtx();
+            const tones = {
+                preview: [440, 554],
+                in: [523, 659, 784],
+                out: [659, 523, 392],
+                error: [220, 185]
+            }[type] || [440];
+
+            let start = ctx.currentTime;
+            tones.forEach((frequency) => {
+                const oscillator = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                oscillator.type = type === 'error' ? 'sawtooth' : 'sine';
+                oscillator.frequency.setValueAtTime(frequency, start);
+                gainNode.gain.setValueAtTime(0.0001, start);
+                gainNode.gain.exponentialRampToValueAtTime(0.06, start + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+                oscillator.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                oscillator.start(start);
+                oscillator.stop(start + 0.18);
+                start += 0.12;
+            });
+        }
+
+        function showResult(title, msg, type) {
+            resultContainer.style.display = 'block';
+            resultContainer.className = '';
+            resultChip.className = 'result-chip';
+            resetReaderState();
+
+            if (type === 'in') {
+                resultContainer.classList.add('status-in', 'animate-success');
+                resultChip.classList.add('chip-in');
+                resultChip.innerText = 'IN';
+                readerEl.classList.add('reader-success-in');
+            } else if (type === 'out') {
+                resultContainer.classList.add('status-out', 'animate-success');
+                resultChip.classList.add('chip-out');
+                resultChip.innerText = 'OUT';
+                readerEl.classList.add('reader-success-out');
+            } else if (type === 'error') {
+                resultContainer.classList.add('error', 'animate-error');
+                resultChip.classList.add('chip-error');
+                resultChip.innerText = '!';
+                readerEl.classList.add('reader-error');
+            }
+
+            document.getElementById('status-header').innerText = title;
+            document.getElementById('status-msg').innerText = msg;
+        }
+
+        function resetReaderState() {
+            readerEl.style.borderColor = '#334155';
+            readerEl.classList.remove('reader-success-in', 'reader-success-out', 'reader-error');
+        }
+
+        const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+
+        if (token) {
+            loadScannerConfig();
+            loadRecentScans();
+            html5QrcodeScanner.render(onScanSuccess);
+        }
+    </script>
+</body>
+</html>
