@@ -14,8 +14,24 @@
     <link rel="icon" type="image/svg+xml" href="/assets/qr_attendance/icons/manager-scanner-icon.svg">
     <script>
         (function () {
+            const tokenStorageKey = 'manager_scanner_token';
             const params = new URLSearchParams(window.location.search);
-            const token = params.get('token');
+            const urlToken = params.get('token');
+            const storedToken = (() => {
+                try {
+                    return window.localStorage.getItem(tokenStorageKey);
+                } catch (error) {
+                    return '';
+                }
+            })();
+            const token = urlToken || storedToken;
+            if (urlToken) {
+                try {
+                    window.localStorage.setItem(tokenStorageKey, urlToken);
+                } catch (error) {
+                    // Ignore storage issues and continue with the URL token.
+                }
+            }
             const manifest = {
                 name: "Manager Scanner",
                 short_name: "Scanner",
@@ -60,6 +76,16 @@
             --warning: #f59e0b;
         }
 
+        html, body {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--bg);
@@ -70,16 +96,18 @@
             align-items: center;
             min-height: 100vh;
             padding: 20px;
+            overflow-x: hidden;
         }
 
         .container {
-            width: 100%;
+            width: min(100%, 500px);
             max-width: 500px;
             background: var(--card-bg);
             padding: 24px;
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             text-align: center;
+            overflow-x: hidden;
         }
 
         h1 {
@@ -114,6 +142,8 @@
             align-items: center;
             justify-content: space-between;
             text-align: left;
+            width: 100%;
+            max-width: 100%;
         }
 
         .hidden {
@@ -199,6 +229,7 @@
             margin-top: 14px;
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         .permission-strip {
@@ -316,6 +347,7 @@
             margin-top: 16px;
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         .action-btn {
@@ -339,6 +371,32 @@
 
         .action-btn.primary.out {
             background: linear-gradient(135deg, #ea580c, #f59e0b);
+        }
+
+        .camera-actions .action-btn,
+        .preview-actions .action-btn,
+        .install-btn {
+            min-width: 0;
+        }
+
+        .camera-actions .action-btn,
+        .preview-actions .action-btn {
+            width: 100%;
+        }
+
+        .pwa-copy,
+        .camera-copy,
+        .preview-meta,
+        .log-time {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        @media (min-width: 480px) {
+            .camera-actions .action-btn,
+            .preview-actions .action-btn {
+                width: auto;
+            }
         }
 
         #reader {
@@ -587,8 +645,25 @@
         let permissionState = { camera: 'unknown', location: 'unknown' };
         let deferredInstallPrompt = null;
 
+        const TOKEN_STORAGE_KEY = 'manager_scanner_token';
         const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
+        const urlToken = (urlParams.get('token') || '').trim();
+        const storedToken = (() => {
+            try {
+                return (window.localStorage.getItem(TOKEN_STORAGE_KEY) || '').trim();
+            } catch (error) {
+                return '';
+            }
+        })();
+        const token = urlToken || storedToken;
+
+        if (urlToken) {
+            try {
+                window.localStorage.setItem(TOKEN_STORAGE_KEY, urlToken);
+            } catch (error) {
+                // Ignore storage issues and continue with the in-memory token.
+            }
+        }
         const readerEl = document.getElementById('reader');
         const resultContainer = document.getElementById('result-container');
         const resultChip = document.getElementById('result-chip');

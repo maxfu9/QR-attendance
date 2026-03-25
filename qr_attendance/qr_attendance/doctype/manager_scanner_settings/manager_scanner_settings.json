@@ -7,6 +7,7 @@
  "field_order": [
   "section_break_1",
   "manager_token",
+  "scanner_access_url_html",
   "scan_cooldown_seconds",
   "section_break_2",
   "enforce_signed_qr_codes",
@@ -49,6 +50,11 @@
    "in_list_view": 1,
    "label": "Manager Scanner Token",
    "reqd": 1
+  },
+  {
+   "fieldname": "scanner_access_url_html",
+   "fieldtype": "HTML",
+   "label": "Scanner Access URL"
   },
   {
    "default": "60",
