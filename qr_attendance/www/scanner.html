@@ -60,6 +60,37 @@
             font-size: 14px;
         }
 
+        .camera-panel {
+            margin-bottom: 20px;
+            padding: 16px;
+            border-radius: 14px;
+            border: 1px solid #334155;
+            background: rgba(15, 23, 42, 0.9);
+            text-align: left;
+        }
+
+        .camera-panel.hidden {
+            display: none;
+        }
+
+        .camera-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .camera-copy {
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .camera-actions {
+            margin-top: 14px;
+            display: flex;
+            gap: 10px;
+        }
+
         .preview-card {
             display: none;
             margin-bottom: 20px;
@@ -172,6 +203,10 @@
             border: 2px solid #334155;
             background: black;
             margin-bottom: 20px;
+        }
+
+        #reader.hidden {
+            display: none;
         }
 
         #result-container {
@@ -343,6 +378,15 @@
             First scan marks <strong>IN</strong>. Next scan marks <strong>OUT</strong> automatically.
         </div>
 
+        <div id="camera-panel" class="camera-panel">
+            <div id="camera-title" class="camera-title">Camera access needed</div>
+            <div id="camera-copy" class="camera-copy">Tap start camera, then allow access in your browser prompt to begin scanning.</div>
+            <div class="camera-actions">
+                <button id="start-camera-btn" class="action-btn primary" type="button">Start Camera</button>
+                <button id="retry-camera-btn" class="action-btn secondary" type="button">Retry</button>
+            </div>
+        </div>
+
         <div id="preview-card" class="preview-card">
             <div class="preview-head">
                 <div id="preview-image-wrap"></div>
@@ -377,6 +421,7 @@
         let scannerConfig = { scan_cooldown_seconds: 60 };
         let pendingEmployee = null;
         let pendingScanData = null;
+        let scannerReady = false;
 
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
@@ -391,16 +436,24 @@
         const confirmScanBtn = document.getElementById('confirm-scan-btn');
         const cancelScanBtn = document.getElementById('cancel-scan-btn');
         const logsList = document.getElementById('logs-list');
+        const cameraPanel = document.getElementById('camera-panel');
+        const cameraTitle = document.getElementById('camera-title');
+        const cameraCopy = document.getElementById('camera-copy');
+        const startCameraBtn = document.getElementById('start-camera-btn');
+        const retryCameraBtn = document.getElementById('retry-camera-btn');
 
         if (!token) {
             document.getElementById('token-error').style.display = 'block';
             document.querySelector('.mode-banner').style.display = 'none';
             readerEl.style.display = 'none';
             previewCard.style.display = 'none';
+            cameraPanel.classList.add('hidden');
         }
 
         cancelScanBtn.addEventListener('click', () => clearPreview(true));
         confirmScanBtn.addEventListener('click', confirmPendingScan);
+        startCameraBtn.addEventListener('click', startCamera);
+        retryCameraBtn.addEventListener('click', startCamera);
 
         function onScanSuccess(decodedText) {
             if (isProcessing) return;
@@ -408,6 +461,7 @@
             pendingScanData = decodedText;
             resetReaderState();
             readerEl.style.borderColor = 'var(--primary)';
+            readerEl.classList.add('hidden');
             html5QrcodeScanner.pause();
             loadEmployeePreview(decodedText);
         }
@@ -561,6 +615,7 @@
 
         function resumeScannerWithDelay(delaySeconds = 3) {
             setTimeout(() => {
+                readerEl.classList.remove('hidden');
                 html5QrcodeScanner.resume();
                 isProcessing = false;
                 resetReaderState();
@@ -710,12 +765,86 @@
             readerEl.classList.remove('reader-success-in', 'reader-success-out', 'reader-error');
         }
 
+        function setCameraPanel(state, message) {
+            if (!token) return;
+
+            cameraPanel.classList.remove('hidden');
+
+            if (state === 'ready') {
+                cameraPanel.classList.add('hidden');
+                return;
+            }
+
+            if (state === 'starting') {
+                cameraTitle.innerText = 'Waiting for camera permission';
+                cameraCopy.innerText = message || 'Allow camera access in your browser to start scanning.';
+                startCameraBtn.disabled = true;
+                retryCameraBtn.disabled = true;
+                startCameraBtn.style.opacity = '0.7';
+                retryCameraBtn.style.opacity = '0.7';
+                return;
+            }
+
+            startCameraBtn.disabled = false;
+            retryCameraBtn.disabled = false;
+            startCameraBtn.style.opacity = '1';
+            retryCameraBtn.style.opacity = '1';
+
+            if (state === 'denied') {
+                cameraTitle.innerText = 'Camera permission blocked';
+                cameraCopy.innerText = message || 'Allow camera access in your browser settings, then tap Retry.';
+            } else if (state === 'unsupported') {
+                cameraTitle.innerText = 'Camera unavailable';
+                cameraCopy.innerText = message || 'This browser or device cannot access the camera.';
+            } else if (state === 'insecure') {
+                cameraTitle.innerText = 'Secure connection required';
+                cameraCopy.innerText = message || 'Camera access usually works only on HTTPS or localhost.';
+            } else {
+                cameraTitle.innerText = 'Camera access needed';
+                cameraCopy.innerText = message || 'Tap start camera, then allow access in your browser prompt to begin scanning.';
+            }
+        }
+
+        async function startCamera() {
+            if (scannerReady || !token) return;
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                setCameraPanel('unsupported');
+                return;
+            }
+
+            if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                setCameraPanel('insecure');
+                return;
+            }
+
+            setCameraPanel('starting');
+
+            try {
+                await html5QrcodeScanner.render(onScanSuccess);
+                scannerReady = true;
+                setCameraPanel('ready');
+            } catch (error) {
+                const message = String(error || '');
+                if (message.includes('Permission denied') || message.includes('NotAllowedError')) {
+                    setCameraPanel('denied');
+                } else if (message.includes('secure context')) {
+                    setCameraPanel('insecure');
+                } else if (message.includes('NotFoundError') || message.includes('Requested device not found')) {
+                    setCameraPanel('unsupported', 'No camera was found on this device.');
+                } else {
+                    setCameraPanel('default', 'Unable to start camera. Check browser permission and tap Retry.');
+                }
+                showResult('Camera Error', 'Unable to start camera access', 'error');
+            }
+        }
+
         const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
 
         if (token) {
             loadScannerConfig();
             loadRecentScans();
-            html5QrcodeScanner.render(onScanSuccess);
+            setCameraPanel('default');
         }
     </script>
 </body>
