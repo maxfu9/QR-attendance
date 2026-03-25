@@ -12,17 +12,18 @@ from hrms.hr.doctype.employee_checkin.employee_checkin import validate_active_em
 DEFAULT_SCAN_COOLDOWN_SECONDS = 60
 DEFAULT_ALLOWED_RADIUS_METERS = 100
 SIGNED_QR_PREFIX = "msqr1"
+SETTINGS_DOCTYPE = "Manager Scanner Settings"
 
 
 def get_qr_attendance_settings():
-	return frappe.get_cached_doc("QR Attendance Settings")
+	return frappe.get_cached_doc(SETTINGS_DOCTYPE)
 
 
 def validate_token(token):
 	if not token:
 		frappe.throw(_("Missing token"), frappe.PermissionError)
 
-	manager_token = frappe.db.get_single_value("QR Attendance Settings", "manager_token")
+	manager_token = frappe.db.get_single_value(SETTINGS_DOCTYPE, "manager_token")
 	if not manager_token or token != manager_token:
 		frappe.throw(_("Invalid token"), frappe.PermissionError)
 
@@ -338,9 +339,9 @@ def create_fallback_web_page():
 	Also ensures default settings are initialized.
 	"""
 	# Initialize Settings
-	if not frappe.db.exists("QR Attendance Settings"):
+	if not frappe.db.exists(SETTINGS_DOCTYPE):
 		doc = frappe.get_doc({
-			"doctype": "QR Attendance Settings",
+			"doctype": SETTINGS_DOCTYPE,
 			"manager_token": "manager123",
 			"scan_cooldown_seconds": 60,
 			"allowed_radius_meters": 100
