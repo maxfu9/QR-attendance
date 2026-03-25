@@ -75,7 +75,7 @@ app_license = "mit"
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": "manager_scanner.utils.jinja_methods",
+	"methods": "manager_scanner.utils",
 }
 
 # Installation

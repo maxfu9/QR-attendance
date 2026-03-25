@@ -122,18 +122,20 @@ def validate_scan_location(latitude=None, longitude=None):
 		return
 
 	settings = get_manager_scanner_settings()
-	allowed_latitude = flt(getattr(settings, "allowed_latitude", 0))
-	allowed_longitude = flt(getattr(settings, "allowed_longitude", 0))
+	raw_allowed_latitude = getattr(settings, "allowed_latitude", None)
+	raw_allowed_longitude = getattr(settings, "allowed_longitude", None)
 	allowed_radius_meters = cint(
 		getattr(settings, "allowed_radius_meters", 0) or DEFAULT_ALLOWED_RADIUS_METERS
 	)
 
-	if not allowed_latitude or not allowed_longitude:
+	if raw_allowed_latitude in (None, "") or raw_allowed_longitude in (None, ""):
 		frappe.throw(_("Scanner location validation is enabled but coordinates are not configured"))
 
 	if latitude is None or longitude is None:
 		frappe.throw(_("Location is required for this scanner"))
 
+	allowed_latitude = flt(raw_allowed_latitude)
+	allowed_longitude = flt(raw_allowed_longitude)
 	latitude = flt(latitude)
 	longitude = flt(longitude)
 	distance = get_distance_in_meters(allowed_latitude, allowed_longitude, latitude, longitude)
@@ -195,6 +197,16 @@ def get_employee_scan_context(scan_data):
 	return employee, next_log_type
 
 
+def get_employee_image_url(image_path, token):
+	if not image_path:
+		return None
+	if image_path.startswith("/files/") or image_path.startswith("http://") or image_path.startswith("https://"):
+		return image_path
+	if image_path.startswith("/private/files/"):
+		return f"/api/method/manager_scanner.api.get_employee_image?token={token}&file_path={image_path}"
+	return image_path
+
+
 @frappe.whitelist(allow_guest=True)
 def get_scanner_config(token=None):
 	validate_token(token)
@@ -217,9 +229,28 @@ def get_employee_preview(scan_data=None, employee_id=None, token=None):
 		"employee_name": employee.employee_name,
 		"department": employee.department,
 		"designation": employee.designation,
-		"image": employee.image,
+		"image": get_employee_image_url(employee.image, token),
 		"next_log_type": next_log_type,
 	}
+
+
+@frappe.whitelist(allow_guest=True)
+def get_employee_image(file_path=None, token=None):
+	validate_token(token)
+	if not file_path or not file_path.startswith("/private/files/"):
+		frappe.throw(_("Invalid image path"))
+
+	absolute_path = frappe.get_site_path(file_path.lstrip("/"))
+	if not os.path.exists(absolute_path):
+		frappe.throw(_("Employee image not found"))
+
+	with open(absolute_path, "rb") as image_file:
+		content = image_file.read()
+
+	frappe.local.response.filename = os.path.basename(file_path)
+	frappe.local.response.filecontent = content
+	frappe.local.response.type = "download"
+	frappe.local.response.display_content_as = "inline"
 
 
 @frappe.whitelist(allow_guest=True)
@@ -304,8 +335,19 @@ def get_scanner_page(token=None):
 def create_fallback_web_page():
 	"""
 	Create a Web Page that redirects to our raw API view.
-	This ensures the URL remains /scanner but we get the raw view.
+	Also ensures default settings are initialized.
 	"""
+	# Initialize Settings
+	if not frappe.db.exists("Manager Scanner Settings"):
+		doc = frappe.get_doc({
+			"doctype": "Manager Scanner Settings",
+			"manager_token": "manager123",
+			"scan_cooldown_seconds": 60,
+			"allowed_radius_meters": 100
+		})
+		doc.insert(ignore_permissions=True)
+		frappe.db.commit()
+
 	name = frappe.db.get_value('Web Page', {'route': 'scanner'}, 'name')
 	if name:
 		doc = frappe.get_doc('Web Page', name)
@@ -333,4 +375,4 @@ def create_fallback_web_page():
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()
 	
-	return f"Web Page '{doc.name}' redirecting to API."
+	return f"Web Page '{doc.name}' and Settings initialized."
