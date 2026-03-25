@@ -104,51 +104,87 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: var(--bg);
+            background:
+                radial-gradient(circle at top, rgba(79, 70, 229, 0.18), transparent 38%),
+                linear-gradient(180deg, #0f172a 0%, #111c31 100%);
             color: var(--text);
             margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            padding: 20px;
+            padding: 16px;
             overflow-x: hidden;
         }
 
         .container {
             width: min(100%, 500px);
             max-width: 500px;
-            background: var(--card-bg);
-            padding: 24px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98));
+            padding: 20px;
+            border-radius: 22px;
+            box-shadow: 0 18px 40px rgba(2, 6, 23, 0.45);
+            border: 1px solid rgba(148, 163, 184, 0.12);
             text-align: center;
             overflow-x: hidden;
         }
 
+        .app-header {
+            margin-bottom: 14px;
+            text-align: left;
+        }
+
         h1 {
-            font-size: 24px;
-            margin-bottom: 8px;
-            font-weight: 700;
+            font-size: 22px;
+            margin: 0 0 6px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
         }
 
         p.subtitle {
             color: var(--text-muted);
-            margin-bottom: 18px;
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.45;
         }
 
         .mode-banner {
-            margin-bottom: 20px;
-            padding: 12px 16px;
-            border-radius: 12px;
-            background: rgba(79, 70, 229, 0.15);
-            border: 1px solid rgba(79, 70, 229, 0.35);
-            color: #c7d2fe;
-            font-size: 14px;
+            margin-bottom: 14px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: rgba(79, 70, 229, 0.12);
+            border: 1px solid rgba(79, 70, 229, 0.22);
+            color: #dbe4ff;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        .mode-title {
+            font-weight: 700;
+            margin-bottom: 8px;
+            line-height: 1.35;
+        }
+
+        .mode-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .mode-pill {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #cbd5f5;
+            background: rgba(15, 23, 42, 0.42);
+            border: 1px solid rgba(148, 163, 184, 0.16);
         }
 
         .pwa-strip {
-            margin-bottom: 18px;
+            margin-bottom: 14px;
             padding: 12px 14px;
             border-radius: 14px;
             border: 1px solid rgba(148, 163, 184, 0.18);
@@ -582,19 +618,35 @@
             display: none;
             color: var(--error);
             font-weight: 600;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        .standalone-mode .mode-banner,
+        .standalone-mode .pwa-strip {
+            display: none !important;
+        }
+
+        .standalone-mode .container {
+            padding-top: 18px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Manager Scanner</h1>
-        <p class="subtitle">Scan employee QR to mark check-in/out</p>
+        <div class="app-header">
+            <h1>Manager Scanner</h1>
+            <p class="subtitle">Scan employee QR to mark attendance quickly and securely.</p>
+        </div>
 
         <div id="token-error">Invalid or Missing Token!</div>
 
-        <div class="mode-banner">
-            First scan marks <strong>IN</strong>. Next scan marks <strong>OUT</strong> automatically.
+        <div class="mode-banner" id="mode-banner">
+            <div class="mode-title" id="mode-title">Auto mode is active. First scan marks IN and the next scan marks OUT.</div>
+            <div class="mode-meta">
+                <span class="mode-pill" id="cooldown-pill">Cooldown 60s</span>
+                <span class="mode-pill hidden" id="location-pill">Location required</span>
+            </div>
         </div>
 
         <div id="pwa-strip" class="pwa-strip hidden">
@@ -723,10 +775,14 @@
         const pwaNote = document.getElementById('pwa-note');
         const pwaBadge = document.getElementById('pwa-badge');
         const installPwaBtn = document.getElementById('install-pwa-btn');
+        const modeBanner = document.getElementById('mode-banner');
+        const modeTitle = document.getElementById('mode-title');
+        const cooldownPill = document.getElementById('cooldown-pill');
+        const locationPill = document.getElementById('location-pill');
 
         if (!token) {
             document.getElementById('token-error').style.display = 'block';
-            document.querySelector('.mode-banner').style.display = 'none';
+            modeBanner.style.display = 'none';
             readerEl.style.display = 'none';
             previewCard.style.display = 'none';
             cameraPanel.classList.add('hidden');
@@ -844,7 +900,12 @@
                 const data = await response.json();
                 if (data.message) {
                     scannerConfig = data.message;
-                    document.querySelector('.mode-banner').innerHTML = `First scan marks <strong>IN</strong>. Next scan marks <strong>OUT</strong> automatically. Cooldown: <strong>${scannerConfig.scan_cooldown_seconds}s</strong>.${scannerConfig.location_validation_enabled ? ' <strong>Location required.</strong>' : ''}`;
+                    modeTitle.innerText = 'Auto mode is active. First scan marks IN and the next scan marks OUT.';
+                    cooldownPill.innerText = `Cooldown ${scannerConfig.scan_cooldown_seconds}s`;
+                    locationPill.classList.toggle('hidden', !scannerConfig.location_validation_enabled);
+                    if (scannerConfig.location_validation_enabled) {
+                        locationPill.innerText = 'Location required';
+                    }
                 }
             } catch (err) {
                 scannerConfig = { scan_cooldown_seconds: 60 };
@@ -1004,6 +1065,7 @@
             if (!pwaStrip) return;
 
             const installed = isStandaloneMode();
+            document.body.classList.toggle('standalone-mode', installed);
             const hasInstallPrompt = !!deferredInstallPrompt;
             const isAppleMobile = /iphone|ipad|ipod/i.test(window.navigator.userAgent || '');
 
