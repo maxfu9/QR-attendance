@@ -879,9 +879,13 @@
                 await html5QrCode.start(
                     cameraId,
                     {
-                        fps: 10,
-                        qrbox: { width: 250, height: 250 },
-                        aspectRatio: 1.333334,
+                        fps: 18,
+                        qrbox: (viewfinderWidth, viewfinderHeight) => {
+                            const edge = Math.max(180, Math.min(Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.58), 260));
+                            return { width: edge, height: edge };
+                        },
+                        aspectRatio: 1,
+                        disableFlip: true,
                         rememberLastUsedCamera: false
                     },
                     onScanSuccess
