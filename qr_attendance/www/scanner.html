@@ -91,6 +91,41 @@
             gap: 10px;
         }
 
+        .permission-strip {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .permission-pill {
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            background: rgba(15, 23, 42, 0.7);
+        }
+
+        .permission-pill.granted {
+            color: #bbf7d0;
+            border-color: rgba(34, 197, 94, 0.35);
+            background: rgba(34, 197, 94, 0.14);
+        }
+
+        .permission-pill.prompt {
+            color: #fde68a;
+            border-color: rgba(245, 158, 11, 0.3);
+            background: rgba(245, 158, 11, 0.12);
+        }
+
+        .permission-pill.denied {
+            color: #fecaca;
+            border-color: rgba(239, 68, 68, 0.32);
+            background: rgba(239, 68, 68, 0.12);
+        }
+
         .preview-card {
             display: none;
             margin-bottom: 20px;
@@ -385,6 +420,10 @@
                 <button id="start-camera-btn" class="action-btn primary" type="button">Start Camera</button>
                 <button id="retry-camera-btn" class="action-btn secondary" type="button">Retry</button>
             </div>
+            <div class="permission-strip">
+                <div id="camera-permission-pill" class="permission-pill">Camera: checking</div>
+                <div id="location-permission-pill" class="permission-pill">Location: checking</div>
+            </div>
         </div>
 
         <div id="preview-card" class="preview-card">
@@ -426,6 +465,7 @@
         let activeCameraLabel = '';
         let isStartingCamera = false;
         let html5QrCode = null;
+        let permissionState = { camera: 'unknown', location: 'unknown' };
 
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
@@ -445,6 +485,8 @@
         const cameraCopy = document.getElementById('camera-copy');
         const startCameraBtn = document.getElementById('start-camera-btn');
         const retryCameraBtn = document.getElementById('retry-camera-btn');
+        const cameraPermissionPill = document.getElementById('camera-permission-pill');
+        const locationPermissionPill = document.getElementById('location-permission-pill');
 
         if (!token) {
             document.getElementById('token-error').style.display = 'block';
@@ -703,24 +745,80 @@
             return fallbackMessage;
         }
 
+
+        function setPermissionPill(element, label, state) {
+            if (!element) return;
+            element.className = `permission-pill ${state}`;
+            const displayState = state === 'granted'
+                ? 'Allowed'
+                : state === 'denied'
+                ? 'Blocked'
+                : state === 'prompt'
+                ? 'Tap to allow'
+                : 'Checking';
+            element.innerText = `${label}: ${displayState}`;
+        }
+
+        async function queryPermission(name) {
+            if (!navigator.permissions || !navigator.permissions.query) {
+                return 'unknown';
+            }
+
+            try {
+                const result = await navigator.permissions.query(name === 'camera' ? { name: 'camera' } : { name: 'geolocation' });
+                return result.state || 'unknown';
+            } catch (error) {
+                return 'unknown';
+            }
+        }
+
+        async function refreshPermissionIndicators() {
+            const cameraState = await queryPermission('camera');
+            const locationState = scannerConfig.location_validation_enabled
+                ? await queryPermission('location')
+                : 'granted';
+
+            permissionState.camera = cameraState;
+            permissionState.location = locationState;
+
+            setPermissionPill(cameraPermissionPill, 'Camera', cameraState);
+            setPermissionPill(
+                locationPermissionPill,
+                'Location',
+                scannerConfig.location_validation_enabled ? locationState : 'granted'
+            );
+
+            if (cameraState === 'granted' && !scannerReady && !isStartingCamera && token) {
+                startCamera();
+            }
+        }
+
         function getCurrentLocationIfRequired() {
             if (!scannerConfig.location_validation_enabled) {
+                permissionState.location = 'granted';
+                setPermissionPill(locationPermissionPill, 'Location', 'granted');
                 return Promise.resolve(null);
             }
 
             if (!navigator.geolocation) {
+                permissionState.location = 'denied';
+                setPermissionPill(locationPermissionPill, 'Location', 'denied');
                 return Promise.reject(new Error('Location is required, but this device does not support geolocation.'));
             }
 
             return new Promise((resolve, reject) => {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
+                        permissionState.location = 'granted';
+                        setPermissionPill(locationPermissionPill, 'Location', 'granted');
                         resolve({
                             latitude: position.coords.latitude,
                             longitude: position.coords.longitude
                         });
                     },
                     (error) => {
+                        permissionState.location = error.code === error.PERMISSION_DENIED ? 'denied' : 'prompt';
+                        setPermissionPill(locationPermissionPill, 'Location', permissionState.location);
                         const message = error.code === error.PERMISSION_DENIED
                             ? 'Location permission is required for this scanner.'
                             : 'Unable to get current location.';
@@ -807,8 +905,10 @@
             }
 
             if (state === 'starting') {
-                cameraTitle.innerText = 'Waiting for camera permission';
-                cameraCopy.innerText = message || 'Allow camera access in your browser to start scanning.';
+                cameraTitle.innerText = permissionState.camera === 'granted' ? 'Opening saved camera access' : 'Waiting for camera permission';
+                cameraCopy.innerText = message || (permissionState.camera === 'granted'
+                    ? 'Camera permission is already allowed on this device. Starting the scanner now.'
+                    : 'Allow camera access in your browser to start scanning.');
                 startCameraBtn.disabled = true;
                 retryCameraBtn.disabled = true;
                 startCameraBtn.style.opacity = '0.7';
@@ -918,6 +1018,8 @@
                     onScanSuccess
                 );
                 scannerReady = true;
+                permissionState.camera = 'granted';
+                setPermissionPill(cameraPermissionPill, 'Camera', 'granted');
                 setCameraPanel('ready');
             } catch (error) {
                 const message = String(error || '');
@@ -930,6 +1032,8 @@
                 } else {
                     setCameraPanel('default', 'Unable to start camera. Check browser permission and tap Retry.');
                 }
+                permissionState.camera = message.includes('Permission denied') || message.includes('NotAllowedError') ? 'denied' : 'prompt';
+                setPermissionPill(cameraPermissionPill, 'Camera', permissionState.camera);
                 showResult('Camera Error', 'Unable to start camera access', 'error');
                 readerEl.classList.add('hidden');
             } finally {
@@ -938,9 +1042,9 @@
         }
 
         if (token) {
-            loadScannerConfig();
+            loadScannerConfig().finally(() => refreshPermissionIndicators());
             loadRecentScans();
-            setCameraPanel('default');
+            setCameraPanel('default', 'Install the PWA and allow permissions once to make future scans faster.');
         }
     </script>
 </body>
