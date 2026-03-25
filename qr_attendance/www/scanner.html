@@ -422,6 +422,10 @@
         let pendingEmployee = null;
         let pendingScanData = null;
         let scannerReady = false;
+        let activeCameraId = null;
+        let activeCameraLabel = '';
+        let isStartingCamera = false;
+        let html5QrCode = null;
 
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
@@ -461,9 +465,9 @@
             pendingScanData = decodedText;
             resetReaderState();
             readerEl.style.borderColor = 'var(--primary)';
-            readerEl.classList.add('hidden');
-            html5QrcodeScanner.pause();
-            loadEmployeePreview(decodedText);
+            stopCameraForScan()
+                .catch(() => {})
+                .finally(() => loadEmployeePreview(decodedText));
         }
 
         async function loadEmployeePreview(scanData) {
@@ -615,10 +619,10 @@
 
         function resumeScannerWithDelay(delaySeconds = 3) {
             setTimeout(() => {
-                readerEl.classList.remove('hidden');
-                html5QrcodeScanner.resume();
-                isProcessing = false;
-                resetReaderState();
+                startCamera(true).finally(() => {
+                    isProcessing = false;
+                    resetReaderState();
+                });
             }, Math.max(delaySeconds, 0) * 1000);
         }
 
@@ -799,14 +803,61 @@
             } else if (state === 'insecure') {
                 cameraTitle.innerText = 'Secure connection required';
                 cameraCopy.innerText = message || 'Camera access usually works only on HTTPS or localhost.';
+            } else if (state === 'active') {
+                cameraTitle.innerText = 'Back camera ready';
+                cameraCopy.innerText = message || 'Point the rear camera at the employee QR code.';
             } else {
                 cameraTitle.innerText = 'Camera access needed';
                 cameraCopy.innerText = message || 'Tap start camera, then allow access in your browser prompt to begin scanning.';
             }
         }
 
-        async function startCamera() {
-            if (scannerReady || !token) return;
+        async function getPreferredCameraId() {
+            const cameras = await Html5Qrcode.getCameras();
+            if (!cameras || !cameras.length) {
+                throw new Error('No camera was found on this device.');
+            }
+
+            const ranked = [...cameras].sort((left, right) => {
+                return scoreCamera(right.label) - scoreCamera(left.label);
+            });
+
+            const preferred = ranked[0];
+            activeCameraId = preferred.id;
+            activeCameraLabel = preferred.label || '';
+            return preferred.id;
+        }
+
+        function scoreCamera(label) {
+            const value = String(label || '').toLowerCase();
+            let score = 0;
+
+            if (value.includes('back') || value.includes('rear') || value.includes('environment')) score += 30;
+            if (value.includes('wide')) score += 8;
+            if (value.includes('telephoto')) score -= 2;
+            if (value.includes('front') || value.includes('facetime') || value.includes('user')) score -= 25;
+
+            return score;
+        }
+
+        async function stopCameraForScan() {
+            readerEl.classList.add('hidden');
+            if (!html5QrCode) return;
+
+            try {
+                if (html5QrCode.isScanning) {
+                    await html5QrCode.stop();
+                }
+            } finally {
+                await html5QrCode.clear();
+                scannerReady = false;
+                setCameraPanel('active', activeCameraLabel ? `Using ${activeCameraLabel}.` : 'Camera paused while this scan is being processed.');
+            }
+        }
+
+        async function startCamera(isResume = false) {
+            if (isStartingCamera || !token) return;
+            if (scannerReady && html5QrCode && html5QrCode.isScanning) return;
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 setCameraPanel('unsupported');
@@ -818,28 +869,45 @@
                 return;
             }
 
-            setCameraPanel('starting');
+            isStartingCamera = true;
+            setCameraPanel('starting', isResume ? 'Getting the back camera ready for the next scan.' : undefined);
 
             try {
-                await html5QrcodeScanner.render(onScanSuccess);
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode('reader');
+                }
+
+                const cameraId = activeCameraId || await getPreferredCameraId();
+                readerEl.classList.remove('hidden');
+                await html5QrCode.start(
+                    cameraId,
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 },
+                        aspectRatio: 1.333334,
+                        rememberLastUsedCamera: false
+                    },
+                    onScanSuccess
+                );
                 scannerReady = true;
-                setCameraPanel('ready');
+                setCameraPanel('active', activeCameraLabel ? `Using ${activeCameraLabel}.` : 'Point the rear camera at the employee QR code.');
             } catch (error) {
                 const message = String(error || '');
                 if (message.includes('Permission denied') || message.includes('NotAllowedError')) {
                     setCameraPanel('denied');
                 } else if (message.includes('secure context')) {
                     setCameraPanel('insecure');
-                } else if (message.includes('NotFoundError') || message.includes('Requested device not found')) {
+                } else if (message.includes('NotFoundError') || message.includes('Requested device not found') || message.includes('No camera')) {
                     setCameraPanel('unsupported', 'No camera was found on this device.');
                 } else {
                     setCameraPanel('default', 'Unable to start camera. Check browser permission and tap Retry.');
                 }
                 showResult('Camera Error', 'Unable to start camera access', 'error');
+                readerEl.classList.add('hidden');
+            } finally {
+                isStartingCamera = false;
             }
         }
-
-        const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
 
         if (token) {
             loadScannerConfig();
