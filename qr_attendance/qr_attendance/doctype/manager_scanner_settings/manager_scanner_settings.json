@@ -14,7 +14,28 @@
   "enable_location_validation",
   "allowed_latitude",
   "allowed_longitude",
-  "allowed_radius_meters"
+  "allowed_radius_meters",
+  "section_break_employee_card",
+  "card_design_preset",
+  "card_badge_label",
+  "show_company_name",
+  "column_break_employee_card_1",
+  "show_photo",
+  "show_employee_id",
+  "show_designation",
+  "show_department",
+  "section_break_employee_card_text",
+  "show_qr_title",
+  "qr_title_text",
+  "column_break_employee_card_text_1",
+  "show_qr_subtitle",
+  "qr_subtitle_text",
+  "section_break_employee_card_size",
+  "card_width_inches",
+  "card_height_inches",
+  "column_break_employee_card_size_1",
+  "qr_size_inches",
+  "print_margin_inches"
  ],
  "fields": [
   {
@@ -80,6 +101,130 @@
    "fieldname": "allowed_radius_meters",
    "fieldtype": "Int",
    "label": "Allowed Radius Meters"
+  },
+  {
+   "fieldname": "section_break_employee_card",
+   "fieldtype": "Section Break",
+   "label": "Employee Card"
+  },
+  {
+   "default": "Modern",
+   "fieldname": "card_design_preset",
+   "fieldtype": "Select",
+   "label": "Card Design",
+   "options": "Modern\nMinimal\nBold"
+  },
+  {
+   "default": "",
+   "fieldname": "card_badge_label",
+   "fieldtype": "Data",
+   "label": "Card Badge Label"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_company_name",
+   "fieldtype": "Check",
+   "label": "Show Company Name"
+  },
+  {
+   "fieldname": "column_break_employee_card_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_photo",
+   "fieldtype": "Check",
+   "label": "Show Employee Photo"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_employee_id",
+   "fieldtype": "Check",
+   "label": "Show Employee ID"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_designation",
+   "fieldtype": "Check",
+   "label": "Show Designation"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_department",
+   "fieldtype": "Check",
+   "label": "Show Department"
+  },
+  {
+   "fieldname": "section_break_employee_card_text",
+   "fieldtype": "Section Break",
+   "label": "Card Text"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_qr_title",
+   "fieldtype": "Check",
+   "label": "Show QR Title"
+  },
+  {
+   "default": "Scan to Mark Attendance",
+   "depends_on": "eval:doc.show_qr_title",
+   "fieldname": "qr_title_text",
+   "fieldtype": "Data",
+   "label": "QR Title Text"
+  },
+  {
+   "fieldname": "column_break_employee_card_text_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_qr_subtitle",
+   "fieldtype": "Check",
+   "label": "Show QR Subtitle"
+  },
+  {
+   "default": "Use the manager scanner to check in or out",
+   "depends_on": "eval:doc.show_qr_subtitle",
+   "fieldname": "qr_subtitle_text",
+   "fieldtype": "Data",
+   "label": "QR Subtitle Text"
+  },
+  {
+   "fieldname": "section_break_employee_card_size",
+   "fieldtype": "Section Break",
+   "label": "Card Size"
+  },
+  {
+   "default": "3.5",
+   "description": "Standard visiting card width in inches.",
+   "fieldname": "card_width_inches",
+   "fieldtype": "Float",
+   "label": "Card Width (Inches)"
+  },
+  {
+   "default": "2",
+   "description": "Standard visiting card height in inches.",
+   "fieldname": "card_height_inches",
+   "fieldtype": "Float",
+   "label": "Card Height (Inches)"
+  },
+  {
+   "fieldname": "column_break_employee_card_size_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1.18",
+   "description": "QR image square size in inches.",
+   "fieldname": "qr_size_inches",
+   "fieldtype": "Float",
+   "label": "QR Size (Inches)"
+  },
+  {
+   "default": "0.08",
+   "description": "Print margin around the visiting card page, in inches.",
+   "fieldname": "print_margin_inches",
+   "fieldtype": "Float",
+   "label": "Print Margin (Inches)"
   }
  ],
  "index_web_pages_for_search": 1,
