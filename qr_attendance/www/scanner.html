@@ -803,9 +803,6 @@
             } else if (state === 'insecure') {
                 cameraTitle.innerText = 'Secure connection required';
                 cameraCopy.innerText = message || 'Camera access usually works only on HTTPS or localhost.';
-            } else if (state === 'active') {
-                cameraTitle.innerText = 'Back camera ready';
-                cameraCopy.innerText = message || 'Point the rear camera at the employee QR code.';
             } else {
                 cameraTitle.innerText = 'Camera access needed';
                 cameraCopy.innerText = message || 'Tap start camera, then allow access in your browser prompt to begin scanning.';
@@ -851,7 +848,7 @@
             } finally {
                 await html5QrCode.clear();
                 scannerReady = false;
-                setCameraPanel('active', activeCameraLabel ? `Using ${activeCameraLabel}.` : 'Camera paused while this scan is being processed.');
+                setCameraPanel('ready');
             }
         }
 
@@ -890,7 +887,7 @@
                     onScanSuccess
                 );
                 scannerReady = true;
-                setCameraPanel('active', activeCameraLabel ? `Using ${activeCameraLabel}.` : 'Point the rear camera at the employee QR code.');
+                setCameraPanel('ready');
             } catch (error) {
                 const message = String(error || '');
                 if (message.includes('Permission denied') || message.includes('NotAllowedError')) {
