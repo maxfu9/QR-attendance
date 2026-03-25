@@ -1,0 +1,1 @@
+from qr_attendance.api import get_signed_qr_payload

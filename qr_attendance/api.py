@@ -14,36 +14,36 @@ DEFAULT_ALLOWED_RADIUS_METERS = 100
 SIGNED_QR_PREFIX = "msqr1"
 
 
-def get_manager_scanner_settings():
-	return frappe.get_cached_doc("Manager Scanner Settings")
+def get_qr_attendance_settings():
+	return frappe.get_cached_doc("QR Attendance Settings")
 
 
 def validate_token(token):
 	if not token:
 		frappe.throw(_("Missing token"), frappe.PermissionError)
 
-	manager_token = frappe.db.get_single_value("Manager Scanner Settings", "manager_token")
+	manager_token = frappe.db.get_single_value("QR Attendance Settings", "manager_token")
 	if not manager_token or token != manager_token:
 		frappe.throw(_("Invalid token"), frappe.PermissionError)
 
 
 def get_scan_cooldown_seconds():
-	settings = get_manager_scanner_settings()
+	settings = get_qr_attendance_settings()
 	return int(getattr(settings, "scan_cooldown_seconds", 0) or DEFAULT_SCAN_COOLDOWN_SECONDS)
 
 
 def should_enforce_signed_qr_codes():
-	settings = get_manager_scanner_settings()
+	settings = get_qr_attendance_settings()
 	return cint(getattr(settings, "enforce_signed_qr_codes", 0))
 
 
 def is_location_validation_enabled():
-	settings = get_manager_scanner_settings()
+	settings = get_qr_attendance_settings()
 	return cint(getattr(settings, "enable_location_validation", 0))
 
 
 def get_qr_signing_secret():
-	return frappe.local.conf.get("encryption_key") or frappe.local.conf.get("db_name") or "manager_scanner"
+	return frappe.local.conf.get("encryption_key") or frappe.local.conf.get("db_name") or "qr_attendance"
 
 
 def _urlsafe_b64encode(value):
@@ -121,7 +121,7 @@ def validate_scan_location(latitude=None, longitude=None):
 	if not is_location_validation_enabled():
 		return
 
-	settings = get_manager_scanner_settings()
+	settings = get_qr_attendance_settings()
 	raw_allowed_latitude = getattr(settings, "allowed_latitude", None)
 	raw_allowed_longitude = getattr(settings, "allowed_longitude", None)
 	allowed_radius_meters = cint(
@@ -203,7 +203,7 @@ def get_employee_image_url(image_path, token):
 	if image_path.startswith("/files/") or image_path.startswith("http://") or image_path.startswith("https://"):
 		return image_path
 	if image_path.startswith("/private/files/"):
-		return f"/api/method/manager_scanner.api.get_employee_image?token={token}&file_path={image_path}"
+		return f"/api/method/qr_attendance.api.get_employee_image?token={token}&file_path={image_path}"
 	return image_path
 
 
@@ -270,7 +270,7 @@ def get_recent_scans(token=None, limit=5):
 def mark_attendance(scan_data=None, employee_id=None, log_type=None, token=None, latitude=None, longitude=None):
 	"""
 	Mark employee attendance via QR scan.
-	Guest accessible if the token matches the Manager Scanner Token.
+	Guest accessible if the token matches the QR Attendance Token.
 	"""
 	validate_token(token)
 
@@ -300,7 +300,7 @@ def mark_attendance(scan_data=None, employee_id=None, log_type=None, token=None,
 			),
 		}
 	except Exception as e:
-		frappe.log_error(frappe.get_traceback(), _("Manager Scanner Error"))
+		frappe.log_error(frappe.get_traceback(), _("QR Attendance Error"))
 		return {
 			"status": "error",
 			"message": str(e)
@@ -317,11 +317,11 @@ def get_scanner_page(token=None):
 	except Exception:
 		return "<h1>Invalid token</h1>"
 		
-	app_path = frappe.get_app_path('manager_scanner')
+	app_path = frappe.get_app_path('qr_attendance')
 	# We'll use a version of scanner.html that is truly standalone
 	html_path = os.path.join(app_path, 'www', 'scanner.html')
 	if not os.path.exists(html_path):
-		html_path = os.path.join(app_path, 'manager_scanner', 'www', 'scanner.html')
+		html_path = os.path.join(app_path, 'qr_attendance', 'www', 'scanner.html')
 	
 	if not os.path.exists(html_path):
 		return f"<h1>Error: scanner.html not found at {html_path}</h1>"
@@ -338,9 +338,9 @@ def create_fallback_web_page():
 	Also ensures default settings are initialized.
 	"""
 	# Initialize Settings
-	if not frappe.db.exists("Manager Scanner Settings"):
+	if not frappe.db.exists("QR Attendance Settings"):
 		doc = frappe.get_doc({
-			"doctype": "Manager Scanner Settings",
+			"doctype": "QR Attendance Settings",
 			"manager_token": "manager123",
 			"scan_cooldown_seconds": 60,
 			"allowed_radius_meters": 100
@@ -353,7 +353,7 @@ def create_fallback_web_page():
 		doc = frappe.get_doc('Web Page', name)
 	else:
 		doc = frappe.new_doc('Web Page')
-		doc.title = 'Manager Scanner Redirect'
+		doc.title = 'QR Attendance Redirect'
 		doc.route = 'scanner'
 		
 	doc.published = 1
@@ -364,7 +364,7 @@ def create_fallback_web_page():
 	<script>
 		const urlParams = new URLSearchParams(window.location.search);
 		const token = urlParams.get('token') || 'manager123';
-		window.location.href = '/api/method/manager_scanner.api.get_scanner_page?token=' + token;
+		window.location.href = '/api/method/qr_attendance.api.get_scanner_page?token=' + token;
 	</script>
 	<p>Redirecting to scanner...</p>
 	"""

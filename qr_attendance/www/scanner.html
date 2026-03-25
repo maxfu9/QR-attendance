@@ -416,7 +416,7 @@
             showResult('Processing...', 'Loading employee details...', '');
 
             try {
-                const response = await fetch('/api/method/manager_scanner.api.get_employee_preview', {
+                const response = await fetch('/api/method/qr_attendance.api.get_employee_preview', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ scan_data: scanData, token: token })
@@ -456,7 +456,7 @@
 
             try {
                 const location = await getCurrentLocationIfRequired();
-                const response = await fetch('/api/method/manager_scanner.api.mark_attendance', {
+                const response = await fetch('/api/method/qr_attendance.api.mark_attendance', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -503,7 +503,7 @@
 
         async function loadScannerConfig() {
             try {
-                const response = await fetch(`/api/method/manager_scanner.api.get_scanner_config?token=${encodeURIComponent(token)}`);
+                const response = await fetch(`/api/method/qr_attendance.api.get_scanner_config?token=${encodeURIComponent(token)}`);
                 const data = await response.json();
                 if (data.message) {
                     scannerConfig = data.message;
@@ -516,7 +516,7 @@
 
         async function loadRecentScans() {
             try {
-                const response = await fetch(`/api/method/manager_scanner.api.get_recent_scans?token=${encodeURIComponent(token)}&limit=5`);
+                const response = await fetch(`/api/method/qr_attendance.api.get_recent_scans?token=${encodeURIComponent(token)}&limit=5`);
                 const data = await response.json();
                 renderRecentScans(data.message || []);
             } catch (err) {

@@ -8,7 +8,7 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-        files: "manager_scanner.*"
+        files: "qr_attendance.*"
         exclude: ".*json$|.*txt$|.*csv|.*md|.*svg"
       - id: check-merge-conflict
       - id: check-ast
@@ -38,11 +38,11 @@ repos:
         # Ignore any files that might contain jinja / bundles
         exclude: |
             (?x)^(
-                manager_scanner/public/dist/.*|
+                qr_attendance/public/dist/.*|
                 .*node_modules.*|
                 .*boilerplate.*|
-                manager_scanner/templates/includes/.*|
-                manager_scanner/public/js/lib/.*
+                qr_attendance/templates/includes/.*|
+                qr_attendance/public/js/lib/.*
             )$
 
 
@@ -55,12 +55,12 @@ repos:
         # Ignore any files that might contain jinja / bundles
         exclude: |
             (?x)^(
-                manager_scanner/public/dist/.*|
+                qr_attendance/public/dist/.*|
                 cypress/.*|
                 .*node_modules.*|
                 .*boilerplate.*|
-                manager_scanner/templates/includes/.*|
-                manager_scanner/public/js/lib/.*
+                qr_attendance/templates/includes/.*|
+                qr_attendance/public/js/lib/.*
             )$
 
 ci:

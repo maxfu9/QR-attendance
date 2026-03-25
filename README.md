@@ -18,7 +18,7 @@ A production-grade, high-security QR scanner for employee attendance, designed e
 2. **Get the App**:
 ```bash
 bench get-app https://github.com/maxfu9/QR-attendance
-bench --site [your-site] install-app manager_scanner
+bench --site [your-site] install-app qr_attendance
 bench --site [your-site] migrate
 ```
 

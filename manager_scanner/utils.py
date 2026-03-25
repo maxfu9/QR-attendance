@@ -1,1 +1,0 @@
-from manager_scanner.api import get_signed_qr_payload
