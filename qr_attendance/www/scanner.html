@@ -489,8 +489,8 @@
                     return;
                 }
 
-                const errorMsg = data._server_messages ? JSON.parse(data._server_messages)[0] : (data.exc_type || 'Error');
-                showResult('Failed', typeof errorMsg === 'string' ? errorMsg : 'Unable to load employee preview', 'error');
+                const errorMsg = extractErrorMessage(data, 'Unable to load employee preview');
+                showResult('Failed', errorMsg, 'error');
                 playTone('error');
                 resumeScannerWithDelay();
             } catch (err) {
@@ -545,9 +545,9 @@
                     playTone(resultType);
                     resumeScannerWithDelay();
                 } else {
-                    const errorMsg = data._server_messages ? JSON.parse(data._server_messages)[0] : (data.exc_type || 'Error');
+                    const errorMsg = extractErrorMessage(data, 'Check the QR code or your connection and try again.');
                     clearPreview(false);
-                    showResult('Failed', typeof errorMsg === 'string' ? errorMsg : 'Check ID or Connection', 'error');
+                    showResult('Failed', errorMsg, 'error');
                     playTone('error');
                     resumeScannerWithDelay();
                 }
@@ -674,6 +674,33 @@
                 .slice(0, 2)
                 .map((part) => part[0].toUpperCase())
                 .join('');
+        }
+
+        function extractErrorMessage(data, fallbackMessage) {
+            if (data?.message && typeof data.message === 'object' && data.message.message) {
+                return data.message.message;
+            }
+
+            if (typeof data?.message === 'string' && data.message.trim()) {
+                return data.message;
+            }
+
+            if (data?._server_messages) {
+                try {
+                    const parsed = JSON.parse(data._server_messages);
+                    const first = Array.isArray(parsed) ? parsed[0] : parsed;
+                    if (typeof first === 'string') {
+                        const nested = JSON.parse(first);
+                        if (nested?.message) return nested.message;
+                        return first;
+                    }
+                    if (first?.message) return first.message;
+                } catch (error) {
+                    // Ignore parsing issues and fall back to a safe message.
+                }
+            }
+
+            return fallbackMessage;
         }
 
         function getCurrentLocationIfRequired() {

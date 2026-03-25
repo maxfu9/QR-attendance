@@ -175,9 +175,11 @@ def validate_scan_cooldown(employee):
 		return
 
 	wait_seconds = int(scan_cooldown_seconds - max(elapsed_seconds, 0))
+	last_action = _("checked in") if last_checkin.log_type == "IN" else _("checked out") if last_checkin.log_type == "OUT" else _("scanned")
+	unit = _("second") if wait_seconds == 1 else _("seconds")
 	frappe.throw(
-		_("{0} was already scanned as {1}. Please wait {2} seconds before scanning again.").format(
-			employee, last_checkin.log_type or _("Unknown"), wait_seconds
+		_("Already {0}. Please wait {1} {2} before scanning again.").format(
+			last_action, wait_seconds, unit
 		)
 	)
 
