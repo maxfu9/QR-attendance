@@ -15,6 +15,25 @@
     <script>
         (function () {
             const tokenStorageKey = 'manager_scanner_token';
+            const tokenCookieName = 'manager_scanner_token';
+            const getCookieToken = () => {
+                const cookie = document.cookie
+                    .split('; ')
+                    .find((entry) => entry.startsWith(`${tokenCookieName}=`));
+                return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : '';
+            };
+            const persistToken = (value) => {
+                if (!value) {
+                    return;
+                }
+                try {
+                    window.localStorage.setItem(tokenStorageKey, value);
+                } catch (error) {
+                    // Ignore storage issues and keep going.
+                }
+                document.cookie = `${tokenCookieName}=${encodeURIComponent(value)}; path=/; max-age=2592000; SameSite=Lax`;
+            };
+
             const params = new URLSearchParams(window.location.search);
             const urlToken = params.get('token');
             const storedToken = (() => {
@@ -24,13 +43,10 @@
                     return '';
                 }
             })();
-            const token = urlToken || storedToken;
-            if (urlToken) {
-                try {
-                    window.localStorage.setItem(tokenStorageKey, urlToken);
-                } catch (error) {
-                    // Ignore storage issues and continue with the URL token.
-                }
+            const cookieToken = getCookieToken();
+            const token = urlToken || storedToken || cookieToken;
+            if (urlToken || token) {
+                persistToken(urlToken || token);
             }
             const manifest = {
                 name: "Manager Scanner",
@@ -646,6 +662,7 @@
         let deferredInstallPrompt = null;
 
         const TOKEN_STORAGE_KEY = 'manager_scanner_token';
+        const TOKEN_COOKIE_NAME = 'manager_scanner_token';
         const urlParams = new URLSearchParams(window.location.search);
         const urlToken = (urlParams.get('token') || '').trim();
         const storedToken = (() => {
@@ -655,14 +672,33 @@
                 return '';
             }
         })();
-        const token = urlToken || storedToken;
+        const cookieToken = document.cookie
+            .split('; ')
+            .find((entry) => entry.startsWith(`${TOKEN_COOKIE_NAME}=`));
+        const rememberedToken = cookieToken ? decodeURIComponent(cookieToken.split('=').slice(1).join('=')) : '';
+        const token = urlToken || storedToken || rememberedToken;
 
-        if (urlToken) {
-            try {
-                window.localStorage.setItem(TOKEN_STORAGE_KEY, urlToken);
-            } catch (error) {
-                // Ignore storage issues and continue with the in-memory token.
+        function persistScannerToken(value) {
+            if (!value) {
+                return;
             }
+
+            try {
+                window.localStorage.setItem(TOKEN_STORAGE_KEY, value);
+            } catch (error) {
+                // Ignore storage issues and continue with cookie storage.
+            }
+
+            document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(value)}; path=/; max-age=2592000; SameSite=Lax`;
+        }
+
+        if (token) {
+            persistScannerToken(token);
+        }
+
+        if (!urlToken && token && window.location.pathname === '/scanner') {
+            const restoredUrl = `${window.location.pathname}?token=${encodeURIComponent(token)}${window.location.hash || ''}`;
+            window.history.replaceState({}, '', restoredUrl);
         }
         const readerEl = document.getElementById('reader');
         const resultContainer = document.getElementById('result-container');
