@@ -4,7 +4,7 @@ A production-grade, high-security QR scanner for employee attendance, designed e
 
 ## 🌟 Key Features
 
-- **Isolated Scanner UI**: A dedicated, mobile-first interface that bypasses ERPNext theme conflicts (Europlast, etc.) for zero rendering issues.
+- **Isolated Scanner UI**: A dedicated, mobile-first interface that bypasses ERPNext theme conflicts for zero rendering issues.
 - **Smart Attendance Logic**: Automatically detects **IN/OUT** status based on the employee's last check-in.
 - **QR Security (Signed Payloads)**: Uses **HMAC-SHA256** to sign QR codes. Prevents unauthorized scans or tampered QR codes.
 - **GPS Geo-fencing**: Enforces location validation (Haversine distance) to ensure scans occur at specified coordinates.
